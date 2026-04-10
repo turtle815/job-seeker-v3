@@ -2,72 +2,88 @@ import React from 'react';
 
 // 1. 데이터를 가져오는 서버 함수
 async function getWelfareData(query: string) {
-  const serviceKey = process.env.WELFARE_API_KEY; 
+  const serviceKey = process.env.WELFARE_API_KEY;
   const baseUrl = "https://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist";
   const url = `${baseUrl}?serviceKey=${serviceKey}&pageNo=1&numOfRows=10&searchWrd=${encodeURIComponent(query)}`;
 
   try {
     const res = await fetch(url, { cache: 'no-store' });
     const xmlText = await res.text();
-    return xmlText; // 원본 XML 텍스트 반환
+    return xmlText;
   } catch (error) {
     return null;
   }
 }
 
-// 2. 화면을 그리는 메인 컴포넌트
+// 2. XML 텍스트에서 특정 태그 안의 내용을 추출하는 도우미 함수
+function extractTag(xml: string, tagName: string): string[] {
+  const regex = new RegExp(`<${tagName}>(.*?)<\/${tagName}>`, 'g');
+  const matches = xml.match(regex);
+  return matches ? matches.map(m => m.replace(/<[^>]*>/g, '')) : [];
+}
+
 export default async function WelfarePage({ searchParams }: { searchParams: { q?: string } }) {
   const query = searchParams.q || "";
   const xmlData = query ? await getWelfareData(query) : null;
 
+  // XML에서 필요한 데이터 추출
+  const titles = xmlData ? extractTag(xmlData, 'servNm') : []; // 서비스명
+  const orgs = xmlData ? extractTag(xmlData, 'jurOrgNm') : []; // 담당기관
+  const details = xmlData ? extractTag(xmlData, 'servDtl') : []; // 상세내용
+
   return (
-    <div className="p-8 max-w-5xl mx-auto font-sans text-black">
-      <h1 className="text-3xl font-bold mb-8 text-blue-700">복지 혜택 검색 결과</h1>
-      
-      <form action="/welfare" method="GET" className="mb-10 flex gap-2">
-        <input
-          name="q"
-          defaultValue={query}
-          placeholder="지역명이나 키워드 입력 (예: 서울, 청년)"
-          className="flex-1 border-2 border-blue-100 p-4 rounded-xl focus:border-blue-500 outline-none shadow-sm"
-        />
-        <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
-          검색
-        </button>
-      </form>
+    <div className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-slate-900">
+      <div className="max-w-4xl mx-auto">
+        <header className="mb-12 text-center">
+          <h1 className="text-4xl font-extrabold text-blue-600 mb-4">복지 혜택 찾기</h1>
+          <p className="text-slate-500 text-lg">지자체에서 제공하는 다양한 복지 서비스를 한눈에 확인하세요.</p>
+        </header>
 
-      <div className="space-y-4">
-        {!query && <p className="text-center text-gray-500 py-20">검색어를 입력하시면 지자체 복지 정보를 찾아드립니다.</p>}
-        
-        {/* XML 데이터가 있을 때만 결과 목록을 보여줌 */}
-        {xmlData && (
-          <div className="grid gap-4">
-            {/* 데이터가 성공적으로 왔는지 간단히 체크 */}
-            {xmlData.includes("<servList>") ? (
-              <p className="text-green-600 font-medium mb-2">✅ 데이터를 성공적으로 불러왔습니다.</p>
-            ) : (
-              <p className="text-red-500">데이터 형식이 올바르지 않거나 결과가 없습니다.</p>
-            )}
+        {/* 검색창 */}
+        <form action="/welfare" method="GET" className="mb-12 relative">
+          <input
+            name="q"
+            defaultValue={query}
+            placeholder="지역명이나 키워드를 입력하세요 (예: 서울, 청년, 어르신)"
+            className="w-full border-0 bg-white p-5 pl-6 pr-32 rounded-2xl shadow-xl text-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          />
+          <button type="submit" className="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-8 rounded-xl font-bold hover:bg-blue-700 transition-colors">
+            검색
+          </button>
+        </form>
 
-            {/* XML 원본 데이터를 스크롤 가능한 창에 담기 */}
-            <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-6">
-               <h3 className="text-lg font-bold mb-4 text-gray-700">📋 수신된 데이터 (Raw XML)</h3>
-               <div className="bg-white p-4 rounded-lg border overflow-auto max-h-[400px]">
-                 <pre className="text-xs text-blue-800 leading-relaxed">
-                   {xmlData}
-                 </pre>
-               </div>
+        {/* 검색 결과 리스트 */}
+        <div className="grid gap-6">
+          {!query && (
+            <div className="text-center py-20 opacity-60">
+              <span className="text-5xl mb-4 block">🔍</span>
+              <p>도움이 필요한 키워드를 검색해 보세요.</p>
             </div>
+          )}
 
-            <div className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-100">
-                <p className="text-blue-800">
-                   💡 **대표님, 축하드립니다!** 데이터 수신에 완벽히 성공했습니다.<br/>
-                   이제 이 XML 안의 `&lt;servNm&gt;`(서비스명)이나 `&lt;servDtl&gt;`(상세내용) 태그를 추출해서 
-                   멋진 카드로 만드는 단계만 남았습니다.
+          {query && titles.length > 0 ? (
+            titles.map((title, index) => (
+              <div key={index} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">
+                    {orgs[index] || "지자체 공통"}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold mb-3 text-slate-800">{title}</h3>
+                <p className="text-slate-600 leading-relaxed mb-6 line-clamp-3">
+                  {details[index] || "상세 정보는 해당 기관에 문의해 주세요."}
                 </p>
+                <button className="text-blue-600 font-semibold flex items-center gap-1 hover:underline">
+                  자세히 보기 <span>→</span>
+                </button>
+              </div>
+            ))
+          ) : query ? (
+            <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
+              <p className="text-slate-400">'{query}'에 대한 검색 결과가 없습니다.</p>
             </div>
-          </div>
-        )}
+          ) : null}
+        </div>
       </div>
     </div>
   );
