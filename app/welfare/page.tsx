@@ -5,22 +5,24 @@ async function getWelfareData(query: string) {
   // 사진에서 확인한 정확한 End Point 주소입니다.
   const baseUrl = "https://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist";
   
-  // XML 데이터를 JSON처럼 부드럽게 받기 위해 &_type=json 을 강제로 붙입니다.
-  const url = `${baseUrl}?serviceKey=${serviceKey}&pageNo=1&numOfRows=10&searchWrd=${encodeURIComponent(query)}&_type=json`;
+  // XML로 요청합니다. (&_type=json 삭제)
+  const url = `${baseUrl}?serviceKey=${serviceKey}&pageNo=1&numOfRows=10&searchWrd=${encodeURIComponent(query)}`;
 
   try {
     const res = await fetch(url, { cache: 'no-store' });
-    const text = await res.text();
+    const xmlText = await res.text(); // JSON이 아닌 텍스트(XML)로 받기
 
-    // 만약 서버에서 JSON 변환을 지원 안 해서 XML(<...)이 날아오면 에러로 처리
-    if (text.trim().startsWith('<')) {
-      return { error: "API 서버가 JSON 형식을 지원하지 않습니다. (XML 응답)" };
-    }
+   // 만약 에러 메시지가 포함되어 있다면 (인증키 오류 등)
+   if (xmlText.includes("<returnAuthMsg>")) {
+    return { error: "인증키 오류가 발생했습니다. 키를 확인하세요." };
+ }
 
-    return JSON.parse(text);
-  } catch (error) {
-    return null;
-  }
+ // [중요] 임시로 XML 데이터를 그대로 화면에 뿌려줍니다. 
+ // 데이터가 오는지 확인하는 게 최우선이니까요!
+ return { isXml: true, rawData: xmlText };
+} catch (error) {
+ return null;
+}
 }
 
 export default async function WelfarePage({ searchParams }: { searchParams: { q?: string } }) {
