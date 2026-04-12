@@ -18,10 +18,10 @@ async function getWelfareData(query: string) {
 async function getCareerData(query: string) {
   const apiKey = process.env.CAREERNET_API_KEY;
   const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&gubun=job_dic_list&contentType=json&searchWord=${encodeURIComponent(query)}`;
-  console.log("지금 요청하는 주소:", url); //
+
   try {
     const res = await fetch(url, { cache: 'no-store' });
-    console.log("4. 커리어 서버 응답 상태:", res.status);
+  
     const data = await res.json();
     return data.dataSearch?.content || [];
   } catch (e) { 
