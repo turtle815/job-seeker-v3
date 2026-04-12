@@ -5,9 +5,11 @@ import React from 'react';
 // 복지 API (XML)
 async function getWelfareData(query: string) {
   const serviceKey = process.env.WELFARE_API_KEY;
+  console.log("1. 복지 검색 시작 - 키 존재여부:", !!serviceKey); // 키가 있으면 true
   const url = `https://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist?serviceKey=${serviceKey}&pageNo=1&numOfRows=5&searchWrd=${encodeURIComponent(query)}`;
   try {
     const res = await fetch(url, { cache: 'no-store' });
+    console.log("2. 복지 서버 응답 상태:", res.status);
     return await res.text();
   } catch (e) { return null; }
 }
@@ -16,13 +18,17 @@ async function getWelfareData(query: string) {
 async function getCareerData(query: string) {
   const apiKey = process.env.CAREERNET_API_KEY;
   const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&gubun=job_dic_list&contentType=json&searchWord=${encodeURIComponent(query)}`;
+  console.log("지금 요청하는 주소:", url); //
   try {
     const res = await fetch(url, { cache: 'no-store' });
+    console.log("4. 커리어 서버 응답 상태:", res.status);
     const data = await res.json();
     return data.dataSearch?.content || [];
-  } catch (e) { return []; }
-}
-
+  } catch (e) { 
+    console.log("X. 커리어 에러 발생:", e); // 반드시 괄호 { } 안에 있어야 합니다.
+    return []; 
+  }
+} //
 // XML 태그 추출 도우미
 function extractTag(xml: string, tagName: string): string[] {
   const regex = new RegExp(`<${tagName}>(.*?)<\/${tagName}>`, 'g');
