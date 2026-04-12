@@ -1,63 +1,120 @@
-import Link from "next/link";
-export default function Home() {
-  const menus = [
-    { title: "복지 혜택 찾기", desc: "나에게 맞는 정부 지원 사업 확인", icon: "🏛️", link: "/welfare", color: "hover:border-blue-500" },
-    { title: "직업 백과사전", desc: "다양한 직업의 연봉과 상세 정보", icon: "💼", link: "/jobs", color: "hover:border-indigo-500" },
-    { title: "대학 학과 가이드", desc: "전국 대학 학과 커리큘럼 안내", img: "/major_icon.png", link: "/major", color: "hover:border-emerald-500" },
-    { title: "자격증 정보", desc: "직무별 필수 및 우대 자격증 안내", icon: "📜", link: "/certificate", color: "hover:border-orange-500" },
-    { title: "기업/채용 매칭", desc: "내 역량에 딱 맞는 기업 추천", icon: "🤝", link: "/matching", color: "hover:border-purple-500" },
-    { title: "상담 및 커뮤니티", desc: "AI 챗봇 상담 및 전문가 연결", icon: "💬", link: "/consulting", color: "hover:border-pink-500" },
-  ];
+import React from 'react';
+
+// --- 1. 데이터 가져오는 함수들 (Server Functions) ---
+
+// 복지 API (XML)
+async function getWelfareData(query: string) {
+  const serviceKey = process.env.WELFARE_API_KEY;
+  const url = `https://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist?serviceKey=${serviceKey}&pageNo=1&numOfRows=5&searchWrd=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    return await res.text();
+  } catch (e) { return null; }
+}
+
+// 커리어넷 API (JSON)
+async function getCareerData(query: string) {
+  const apiKey = process.env.CAREERNET_API_KEY;
+  const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&gubun=job_dic_list&contentType=json&searchWord=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    return data.dataSearch?.content || [];
+  } catch (e) { return []; }
+}
+
+// XML 태그 추출 도우미
+function extractTag(xml: string, tagName: string): string[] {
+  const regex = new RegExp(`<${tagName}>(.*?)<\/${tagName}>`, 'g');
+  const matches = xml.match(regex);
+  return matches ? matches.map(m => m.replace(/<[^>]*>/g, '')) : [];
+}
+
+// --- 2. 메인 페이지 컴포넌트 ---
+
+export default async function HomePage({ searchParams }: { searchParams: { q?: string } }) {
+  const query = searchParams.q || "";
+  
+  // 검색어가 있을 때만 양쪽 API 동시 호출
+  const [xmlWelfare, careerJobs] = query 
+    ? await Promise.all([getWelfareData(query), getCareerData(query)])
+    : [null, []];
+
+  const welfareTitles = xmlWelfare ? extractTag(xmlWelfare, 'servNm') : [];
+  const welfareDetails = xmlWelfare ? extractTag(xmlWelfare, 'servDtl') : [];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-16 px-6">
-      <div className="max-w-6xl mx-auto">
-        {/* 상단 헤더 영역 */}
-        <div className="text-center mb-16">
-          <span className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold">내일을 위한 커리어 파트너</span>
-          <h1 className="text-5xl font-black text-slate-900 mt-6 mb-4 tracking-tight">
-            성공적인 구직을 위한 <br/>
-            <span className="text-blue-600">스마트 솔루션</span>
-          </h1>
-          <p className="text-slate-500 text-lg">기획하신 6가지 핵심 서비스를 한곳에 모았습니다.</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 font-sans text-slate-900">
+      {/* 히어로 섹션 */}
+      <div className="bg-indigo-600 py-16 px-6 text-center text-white">
+        <h1 className="text-4xl font-extrabold mb-4">내게 맞는 복지와 커리어 찾기</h1>
+        <p className="text-indigo-100 mb-8">키워드 하나로 지자체 혜택부터 직업 정보까지 한 번에 확인하세요.</p>
+        
+        <form action="/" method="GET" className="max-w-2xl mx-auto relative">
+          <input
+            name="q"
+            defaultValue={query}
+            placeholder="예: 서울 청년, 요리사, 컴퓨터"
+            className="w-full p-5 pl-8 pr-32 rounded-full text-black shadow-2xl focus:ring-4 focus:ring-indigo-300 outline-none"
+          />
+          <button type="submit" className="absolute right-2 top-2 bottom-2 bg-indigo-800 text-white px-8 rounded-full font-bold hover:bg-black transition-all">
+            검색
+          </button>
+        </form>
+      </div>
 
-        {/* 6구 카드 그리드 영역 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {menus.map((menu, idx) => (
-            <Link 
-              key={idx}
-              href={menu.link} 
-              className={`group p-8 bg-white border-2 border-transparent rounded-[32px] ${menu.color} transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-2 flex flex-col items-center text-center`}
-            >
-              <div className="w-20 h-20 mb-6 flex items-center justify-center bg-slate-50 rounded-2xl group-hover:bg-white transition-colors overflow-hidden">
-                {menu.img ? (
-                  <img 
-                    src={menu.img} 
-                    alt={menu.title} 
-                    className="w-full h-full object-contain p-2" // 찌그러짐 방지: object-contain
-                  />
-                ) : (
-                  <span className="text-4xl">{menu.icon}</span>
-                )}
+      <div className="max-w-6xl mx-auto p-6 md:p-12">
+        {!query && (
+          <div className="text-center py-20">
+            <p className="text-slate-400 text-lg font-medium">검색어를 입력하시면 맞춤 정보를 불러옵니다. 😊</p>
+          </div>
+        )}
+
+        {query && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            
+            {/* 왼쪽: 복지 혜택 결과 */}
+            <div>
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span className="text-blue-500">🏢</span> 지자체 복지 혜택
+              </h2>
+              <div className="space-y-4">
+                {welfareTitles.length > 0 ? welfareTitles.map((title, i) => (
+                  <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-lg mb-2">{title}</h3>
+                    <p className="text-slate-600 text-sm line-clamp-2 mb-4">{welfareDetails[i]}</p>
+                    <button className="text-blue-600 text-sm font-bold hover:underline">상세보기(준비중) →</button>
+                  </div>
+                )) : <p className="text-slate-400">복지 검색 결과가 없습니다.</p>}
               </div>
-              <h2 className="text-xl font-bold text-slate-800 mb-2">{menu.title}</h2>
-              <p className="text-slate-400 text-sm leading-relaxed">{menu.desc}</p>
-            </Link>
-          ))}
-        </div>
+            </div>
 
-        {/* 하단 마이페이지 퀵 메뉴 */}
-<div className="mt-16 p-8 bg-indigo-900 rounded-[32px] text-white flex flex-col md:flex-row items-center justify-between shadow-2xl">
-  <div>
-    <h3 className="text-2xl font-bold mb-1">마이페이지 관리</h3>
-    <p className="opacity-70 text-sm">상담 현황, 지원 현황, 검색 현황을 한눈에 관리하세요.</p>
-  </div>
-  {/* 👇 주소를 /mypage가 아닌 /login으로 보냅니다! */}
-  <Link href="/login" className="mt-6 md:mt-0 bg-white text-indigo-900 px-8 py-4 rounded-2xl font-black hover:bg-indigo-50 transition-colors">
-    로그인 / 회원가입
-  </Link>
-</div>
+            {/* 오른쪽: 커리어넷 직업 결과 */}
+            <div>
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span className="text-indigo-500">🎓</span> 직업백과사전
+              </h2>
+              <div className="space-y-4">
+                {careerJobs.length > 0 ? careerJobs.map((job: any) => (
+                  <div key={job.job_dic_list_no} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-lg mb-2">{job.job_nm}</h3>
+                    <p className="text-slate-600 text-sm line-clamp-2 mb-4">{job.job_summary}</p>
+                    <div className="flex gap-2">
+                      <a 
+                        href={`https://www.career.go.kr/cnet/front/base/job/jobView.do?SEQ=${job.job_dic_list_no}`}
+                        target="_blank"
+                        className="text-xs bg-indigo-50 text-indigo-600 px-3 py-2 rounded-lg font-bold hover:bg-indigo-600 hover:text-white transition-all"
+                      >
+                        직업상세 보기 🔗
+                      </a>
+                    </div>
+                  </div>
+                )) : <p className="text-slate-400">직업 검색 결과가 없습니다.</p>}
+              </div>
+            </div>
+
+          </div>
+        )}
       </div>
     </div>
   );
